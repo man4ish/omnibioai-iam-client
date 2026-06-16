@@ -24,6 +24,23 @@ It ensures **sub-millisecond identity checks for HPC-scale workloads**.
 
 ---
 
+## Deployment Context
+
+The IAM client is used as a **library**, not a standalone service.
+It is embedded in services that need to validate JWT tokens:
+
+- `omnibioai-api-gateway` — validates every incoming request
+- `omnibioai-security-sdk` — wraps IAM client in middleware stack
+- `omnibioai-control-center` — validates internal service tokens
+
+Install as a local package:
+
+```bash
+pip install -e ~/Desktop/machine/omnibioai-iam-client
+```
+
+---
+
 # ⚡ Key Features
 
 ## 🧠 Zero-latency authentication
@@ -73,6 +90,19 @@ Auth Service validation
       │
       ▼
 Cache update / eviction
+```
+
+---
+
+## Testing
+
+```bash
+cd ~/Desktop/machine/omnibioai-iam-client
+pytest tests/ -v --cov=.
+
+# 100% coverage
+# Covers: IAM client validate, cache hit/miss,
+#         token eviction, permission checks, models
 ```
 
 ---
@@ -178,20 +208,47 @@ This SDK is used across:
 
 ---
 
-# ⚠️ Limitations (current version)
+## Known Limitations
 
-* No automatic key rotation (JWT secret-based)
-* No distributed pub/sub cache invalidation yet
-* No offline policy enforcement (OPA not integrated yet)
+- No automatic key rotation (JWT secret-based, rotation planned for v0.5)
+- No offline policy enforcement (OPA not integrated)
+
+> **Note:** Redis pub/sub cache invalidation IS implemented —
+> the api-gateway subscribes to `policy:invalidate` and evicts
+> stale tokens on logout. This is handled at the gateway level,
+> not the IAM client level.
 
 ---
 
-# 🚀 Roadmap
+## Roadmap
 
-## Next upgrades
+| Feature | Status |
+|---------|--------|
+| Redis cache-first validation | ✓ Stable |
+| Async httpx client | ✓ Stable |
+| Local JWT decode (offline) | ✓ Stable |
+| Cache eviction on invalid tokens | ✓ Stable |
+| Redis pub/sub invalidation (gateway level) | ✓ Stable |
+| 100% test coverage | ✓ Stable |
+| RS256 public/private key JWT | Planned v0.5 |
+| Multi-tenant lab isolation | Planned v0.5 |
+| OPA policy integration | Planned |
 
-* 🔐 RS256 public/private key JWT system
-* ⚡ Redis pub/sub cache invalidation across nodes
-* 🧠 Policy engine (OPA integration)
-* 🧬 Multi-tenant lab isolation
-* 📊 IAM audit logging stream
+---
+
+## Related Services
+
+| Service | Role |
+|---------|------|
+| `omnibioai-auth` | Validates tokens on cache miss (POST /auth/validate) |
+| `omnibioai-api-gateway` | Primary consumer — uses IAM client for every request |
+| `omnibioai-security-sdk` | Wraps IAM client in reusable middleware |
+| `omnibioai-studio` | Provides REDIS_URL and IAM_URL via docker-compose env |
+
+## License
+
+Apache 2.0
+
+---
+
+*Part of the [OmniBioAI](https://github.com/man4ish/omnibioai-studio) platform.*
